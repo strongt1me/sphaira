@@ -246,8 +246,7 @@ ErrorBox::ErrorBox(Result code, const std::string& message) : ErrorBox{message} 
 
 ErrorBox::ErrorBox(Result code, const std::string& message, const std::string& detail) : ErrorBox{code, message} {
     if (!detail.empty()) {
-        m_hint += (m_hint.empty() ? "" : "
-") + detail;
+        m_hint += (m_hint.empty() ? "" : "\n") + detail;
     }
 }
 
