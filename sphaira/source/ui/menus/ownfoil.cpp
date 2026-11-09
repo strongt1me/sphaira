@@ -152,6 +152,7 @@ Menu::Menu(u32 flags) : grid::Menu{"Ownfoil"_i18n, flags} {
     }});
 
     m_list = std::make_unique<List>(1, 4, LIST_POS, LIST_ITEM, LIST_PAD);
+    m_list->SetWrapNavigation(false); // Down moves focus to the discover button.
 
     if (m_view.Get() < 0 || m_view.Get() >= ViewType_Count) {
         m_view.Set(ViewType_Icon);
@@ -220,6 +221,7 @@ void Menu::SetMode(Mode mode) {
             SetTitleSubHeading("");
             SetSubHeading("");
             m_list = std::make_unique<List>(1, 4, LIST_POS, LIST_ITEM, LIST_PAD);
+            m_list->SetWrapNavigation(false);
         }
     }
 }

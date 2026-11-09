@@ -36,12 +36,21 @@ auto List::ClampY(float y, s64 count) const -> float {
 }
 
 void List::OnUpdate(Controller* controller, TouchInfo* touch, s64 index, s64 count, const TouchCallback& callback) {
+    const auto next = m_layout == Layout::HOME ? Button::RIGHT : Button::DOWN;
+    const auto prev = m_layout == Layout::HOME ? Button::LEFT : Button::UP;
+
+    // GotDown also fires for key repeat. Only a fresh press wraps at an edge.
+    const bool next_press = controller->GotDown(next) && !m_next_held;
+    const bool prev_press = controller->GotDown(prev) && !m_prev_held;
+    m_next_held = controller->GotHeld(next);
+    m_prev_held = controller->GotHeld(prev);
+
     switch (m_layout) {
         case Layout::HOME:
-            OnUpdateHome(controller, touch, index, count, callback);
+            OnUpdateHome(controller, touch, index, count, next_press, prev_press, callback);
             break;
         case Layout::GRID:
-            OnUpdateGrid(controller, touch, index, count, callback);
+            OnUpdateGrid(controller, touch, index, count, next_press, prev_press, callback);
             break;
     }
 }
@@ -121,13 +130,25 @@ auto List::ScrollUp(s64& index, s64 step, s64 count) -> bool {
     return false;
 }
 
-void List::OnUpdateHome(Controller* controller, TouchInfo* touch, s64 index, s64 count, const TouchCallback& callback) {
+auto List::WrapTo(s64& index, s64 target, s64 count) -> bool {
+    if (count <= 1 || target == index) {
+        return false;
+    }
+
+    index = target;
+    m_y_prog = 0;
+    m_yoff = m_layout == Layout::GRID ? ClampY((target / m_row) * GetMaxY(), count) : std::min(target, std::max<s64>(0, count - m_page)) * GetMaxX();
+    App::PlaySoundEffect(SoundEffect::Scroll);
+    return true;
+}
+
+void List::OnUpdateHome(Controller* controller, TouchInfo* touch, s64 index, s64 count, bool next_press, bool prev_press, const TouchCallback& callback) {
     if (controller->GotDown(Button::RIGHT)) {
-        if (ScrollDown(index, m_row, count)) {
+        if ((m_wrap_navigation && next_press && index == count - 1 && WrapTo(index, 0, count)) || ScrollDown(index, m_row, count)) {
             callback(false, index);
         }
     } else if (controller->GotDown(Button::LEFT)) {
-        if (ScrollUp(index, m_row, count)) {
+        if ((m_wrap_navigation && prev_press && index == 0 && WrapTo(index, count - 1, count)) || ScrollUp(index, m_row, count)) {
             callback(false, index);
         }
     } else if (touch->is_clicked && touch->in_range(GetPos())) {
@@ -157,7 +178,7 @@ void List::OnUpdateHome(Controller* controller, TouchInfo* touch, s64 index, s64
     }
 }
 
-void List::OnUpdateGrid(Controller* controller, TouchInfo* touch, s64 index, s64 count, const TouchCallback& callback) {
+void List::OnUpdateGrid(Controller* controller, TouchInfo* touch, s64 index, s64 count, bool next_press, bool prev_press, const TouchCallback& callback) {
     const auto page_up_button = GetPageJump() ? (m_row == 1 ? Button::DPAD_LEFT : Button::L2) : (Button::NONE);
     const auto page_down_button = GetPageJump() ? (m_row == 1 ? Button::DPAD_RIGHT : Button::R2) : (Button::NONE);
 
@@ -166,11 +187,11 @@ void List::OnUpdateGrid(Controller* controller, TouchInfo* touch, s64 index, s64
     const auto hot_page = m_page * 4;
 
     if (controller->GotDown(Button::DOWN)) {
-        if (ScrollDown(index, hotkey ? end_page : m_row, count)) {
+        if ((!hotkey && m_wrap_navigation && next_press && index == count - 1 && WrapTo(index, 0, count)) || ScrollDown(index, hotkey ? end_page : m_row, count)) {
             callback(false, index);
         }
     } else if (controller->GotDown(Button::UP)) {
-        if (ScrollUp(index, hotkey ? end_page : m_row, count)) {
+        if ((!hotkey && m_wrap_navigation && prev_press && index == 0 && WrapTo(index, count - 1, count)) || ScrollUp(index, hotkey ? end_page : m_row, count)) {
             callback(false, index);
         }
     } else if (controller->GotDown(page_down_button)) {

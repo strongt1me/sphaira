@@ -119,6 +119,10 @@ private:
     Menu& m_menu;
 
     s64 m_index{}; // where i am in the array
+    bool m_option_next_press{};
+    bool m_option_prev_press{};
+    bool m_option_next_held{};
+    bool m_option_prev_held{};
     std::vector<Option> m_options{};
     LazyImage m_banner{};
     std::unique_ptr<List> m_list{};

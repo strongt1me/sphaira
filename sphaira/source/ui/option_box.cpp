@@ -181,13 +181,13 @@ auto OptionBox::Setup(s64 index) -> void {
 
     SetActions(
         std::make_pair(Button::LEFT, Action{[this](){
-            if (m_index) {
-                SetIndex(m_index - 1);
+            if (m_entries.size() > 1) {
+                SetIndex(m_index ? m_index - 1 : m_entries.size() - 1);
             }
         }}),
         std::make_pair(Button::RIGHT, Action{[this](){
-            if (m_index < (m_entries.size() - 1)) {
-                SetIndex(m_index + 1);
+            if (m_entries.size() > 1) {
+                SetIndex(m_index + 1 < m_entries.size() ? m_index + 1 : 0);
             }
         }}),
         std::make_pair(Button::A, Action{[this](){

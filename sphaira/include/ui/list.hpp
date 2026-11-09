@@ -68,13 +68,18 @@ struct List final : Object {
         return m_page_jump;
     }
 
+    void SetWrapNavigation(bool enable) {
+        m_wrap_navigation = enable;
+    }
+
 private:
     auto Draw(NVGcontext* vg, Theme* theme) -> void override {}
     auto ClampX(float x, s64 count) const -> float;
     auto ClampY(float y, s64 count) const -> float;
 
-    void OnUpdateHome(Controller* controller, TouchInfo* touch, s64 index, s64 count, const TouchCallback& callback);
-    void OnUpdateGrid(Controller* controller, TouchInfo* touch, s64 index, s64 count, const TouchCallback& callback);
+    auto WrapTo(s64& index, s64 target, s64 count) -> bool;
+    void OnUpdateHome(Controller* controller, TouchInfo* touch, s64 index, s64 count, bool next_press, bool prev_press, const TouchCallback& callback);
+    void OnUpdateGrid(Controller* controller, TouchInfo* touch, s64 index, s64 count, bool next_press, bool prev_press, const TouchCallback& callback);
     void DrawHome(NVGcontext* vg, Theme* theme, s64 count, const Callback& callback) const;
     void DrawGrid(NVGcontext* vg, Theme* theme, s64 count, const Callback& callback) const;
 
@@ -94,6 +99,9 @@ private:
 
     Layout m_layout{Layout::GRID};
     bool m_page_jump{true};
+    bool m_wrap_navigation{true};
+    bool m_next_held{};
+    bool m_prev_held{};
 };
 
 } // namespace sphaira::ui

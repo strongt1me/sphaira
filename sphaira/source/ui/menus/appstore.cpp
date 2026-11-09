@@ -746,14 +746,26 @@ EntryMenu::EntryMenu(Entry& entry, const LazyImage& default_icon, Menu& menu)
 , m_menu{menu} {
     this->SetActions(
         std::make_pair(Button::DPAD_DOWN | Button::RS_DOWN, Action{[this](){
-            if (m_index < (m_options.size() - 1)) {
-                SetIndex(m_index + 1);
+            if (m_options.size() > 1) {
+                if (m_index + 1 < m_options.size()) {
+                    SetIndex(m_index + 1);
+                } else if (m_option_next_press) {
+                    SetIndex(0);
+                } else {
+                    return;
+                }
                 App::PlaySoundEffect(SoundEffect::Focus);
             }
         }}),
         std::make_pair(Button::DPAD_UP | Button::RS_UP, Action{[this](){
-            if (m_index != 0) {
-                SetIndex(m_index - 1);
+            if (m_options.size() > 1) {
+                if (m_index != 0) {
+                    SetIndex(m_index - 1);
+                } else if (m_option_prev_press) {
+                    SetIndex(m_options.size() - 1);
+                } else {
+                    return;
+                }
                 App::PlaySoundEffect(SoundEffect::Focus);
             }
         }}),
@@ -872,6 +884,13 @@ EntryMenu::~EntryMenu() {
 }
 
 void EntryMenu::Update(Controller* controller, TouchInfo* touch) {
+    const auto next = Button::DPAD_DOWN | Button::RS_DOWN;
+    const auto prev = Button::DPAD_UP | Button::RS_UP;
+    m_option_next_press = controller->GotDown(next) && !m_option_next_held;
+    m_option_prev_press = controller->GotDown(prev) && !m_option_prev_held;
+    m_option_next_held = controller->GotHeld(next);
+    m_option_prev_held = controller->GotHeld(prev);
+
     MenuBase::Update(controller, touch);
 
     if (m_show_file_list) {
