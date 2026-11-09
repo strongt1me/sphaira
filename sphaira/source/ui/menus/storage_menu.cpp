@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <optional>
 #include <unordered_set>
 
 namespace sphaira::ui::menu::storage {
@@ -65,6 +66,28 @@ static_assert(sizeof(CacheRecord) == 0x38);
 constexpr Vec4 PANEL{30, 90, 375, 555};
 constexpr float PANEL_X = PANEL.x + 20;
 constexpr float PANEL_W = PANEL.w - 40;
+
+std::string GetNandType() {
+    static const auto is_emummc = []() -> std::optional<bool> {
+        if (R_FAILED(splInitialize())) {
+            return std::nullopt;
+        }
+
+        u64 type{};
+        const auto rc = splGetConfig(static_cast<SplConfigItem>(65007), &type);
+        splExit();
+
+        if (R_FAILED(rc)) {
+            return std::nullopt;
+        }
+        return type != 0;
+    }();
+
+    if (!is_emummc) {
+        return "System memory"_i18n;
+    }
+    return *is_emummc ? "emuMMC"_i18n : "eMMC"_i18n;
+}
 
 bool LoadControlImage(game::Entry& e, title::ThreadResultData* result) {
     if (!e.image && result && !result->icon.empty()) {
@@ -180,7 +203,7 @@ Menu::Menu(u32 flags) : MenuBase{"Data Management"_i18n, flags} {
             SidebarEntryArray::Items filter_items;
             filter_items.push_back("All"_i18n);
             filter_items.push_back("microSD card"_i18n);
-            filter_items.push_back("System memory"_i18n);
+            filter_items.push_back(GetNandType());
 
             options->Add<SidebarEntryArray>("Sort"_i18n, sort_items, [this](s64& index_out){
                 m_sort.Set(index_out);
@@ -275,12 +298,13 @@ void Menu::Draw(NVGcontext* vg, Theme* theme) {
     MenuBase::Draw(vg, theme);
 
     const auto pdata = GetPolledData();
+    const auto nand_type = GetNandType();
 
     // left side panel, storage summary followed by the selected game.
     gfx::drawRect(vg, PANEL, theme->GetColour(ThemeEntryID_GRID));
 
     DrawStorageBar(vg, theme, PANEL_X, PANEL.y + 20, PANEL_W, "microSD card"_i18n, m_games_sd, pdata.sd_free, pdata.sd_total);
-    DrawStorageBar(vg, theme, PANEL_X, PANEL.y + 144, PANEL_W, "System memory"_i18n, m_games_nand, pdata.emmc_free, pdata.emmc_total);
+    DrawStorageBar(vg, theme, PANEL_X, PANEL.y + 144, PANEL_W, nand_type, m_games_nand, pdata.emmc_free, pdata.emmc_total);
 
     gfx::drawRect(vg, PANEL_X, PANEL.y + 266, PANEL_W, 1.f, theme->GetColour(ThemeEntryID_LINE_SEPARATOR));
 
@@ -295,7 +319,7 @@ void Menu::Draw(NVGcontext* vg, Theme* theme) {
     int image_load_count = 0;
     const auto count = (s64)m_view.size();
 
-    m_list->Draw(vg, theme, count, [this, count, &image_load_count](auto* vg, auto* theme, auto& v, auto i) {
+    m_list->Draw(vg, theme, count, [this, count, &image_load_count, &nand_type](auto* vg, auto* theme, auto& v, auto i) {
         const auto& [x, y, w, h] = v;
         auto& entry = m_entries[m_view[i]];
         auto& game = entry.game;
@@ -341,9 +365,9 @@ void Menu::Draw(NVGcontext* vg, Theme* theme) {
 
         std::string location;
         if (entry.size_sd && entry.size_nand) {
-            location = "SD + System"_i18n;
+            location = "SD"_i18n + " + " + nand_type;
         } else if (entry.size_nand) {
-            location = "System memory"_i18n;
+            location = nand_type;
         } else {
             location = "microSD card"_i18n;
         }
@@ -418,7 +442,7 @@ void Menu::DrawDetails(NVGcontext* vg, Theme* theme) {
     gfx::drawRect(vg, PANEL_X, PANEL.y + 478, PANEL_W, 1.f, theme->GetColour(ThemeEntryID_LINE_SEPARATOR));
 
     draw_row(PANEL.y + 490, "microSD card"_i18n, e.size_sd);
-    draw_row(PANEL.y + 516, "System memory"_i18n, e.size_nand);
+    draw_row(PANEL.y + 516, GetNandType(), e.size_nand);
 }
 
 void Menu::SetIndex(s64 index) {
