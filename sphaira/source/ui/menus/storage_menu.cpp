@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
-#include <optional>
 #include <unordered_set>
 
 namespace sphaira::ui::menu::storage {
@@ -68,25 +67,7 @@ constexpr float PANEL_X = PANEL.x + 20;
 constexpr float PANEL_W = PANEL.w - 40;
 
 std::string GetNandType() {
-    static const auto is_emummc = []() -> std::optional<bool> {
-        if (R_FAILED(splInitialize())) {
-            return std::nullopt;
-        }
-
-        u64 type{};
-        const auto rc = splGetConfig(static_cast<SplConfigItem>(65007), &type);
-        splExit();
-
-        if (R_FAILED(rc)) {
-            return std::nullopt;
-        }
-        return type != 0;
-    }();
-
-    if (!is_emummc) {
-        return "System memory"_i18n;
-    }
-    return *is_emummc ? "emuMMC"_i18n : "eMMC"_i18n;
+    return App::IsEmummc() ? "emuMMC"_i18n : "eMMC"_i18n;
 }
 
 bool LoadControlImage(game::Entry& e, title::ThreadResultData* result) {

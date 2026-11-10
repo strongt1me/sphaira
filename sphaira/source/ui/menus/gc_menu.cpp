@@ -114,7 +114,7 @@ auto GetDumpTypeStr(u8 type) -> const char* {
 
 void ResolveXciExportNames(std::span<ApplicationEntry> entries) {
     for (auto& entry : entries) {
-        entry.export_name = title::ResolveExportName(entry.app_id, entry.export_name);
+        entry.export_name = title::ResolveDumpName(entry.app_id, entry.export_name);
     }
 }
 

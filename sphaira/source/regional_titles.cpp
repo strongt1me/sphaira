@@ -17,7 +17,8 @@ namespace sphaira::title {
 
 namespace {
 
-constexpr const char* TITLES_URL = "https://raw.githubusercontent.com/NaGaa95/sphaira/master/assets/regional_titles/CJK_titledb.bin";
+constexpr const char* TITLES_URL = "https://raw.githubusercontent.com/NaGaa95/sphaira/master/assets/romfs/regional_titles/CJK_titledb.bin";
+constexpr fs::FsPath BUNDLED_PATH{"romfs:/regional_titles/CJK_titledb.bin"};
 constexpr fs::FsPath CACHE_PATH{"/config/sphaira/CJK_titledb.bin"};
 constexpr fs::FsPath TEMP_PATH{"/config/sphaira/CJK_titledb.bin.tmp"};
 constexpr fs::FsPath BACKUP_PATH{"/config/sphaira/CJK_titledb.bin.bak"};
@@ -132,6 +133,22 @@ bool LoadCache(const fs::FsPath& path, std::vector<Entry>& titles) {
     return true;
 }
 
+bool LoadBundled(std::vector<Entry>& titles) {
+    std::vector<u8> data;
+    if (R_FAILED(fs::FsStdio().read_entire_file(BUNDLED_PATH, data))) {
+        return false;
+    }
+
+    auto parsed = Parse(data);
+
+    if (parsed.empty()) {
+        return false;
+    }
+
+    titles = std::move(parsed);
+    return true;
+}
+
 void SaveCache(const std::vector<u8>& data) {
     fs::FsNativeSd sd;
     if (R_FAILED(sd.CreateDirectoryRecursivelyWithPath(CACHE_PATH)) ||
@@ -162,7 +179,7 @@ curl::OnProgress DownloadProgress() {
 void Load() {
     const bool cached = LoadCache(CACHE_PATH, g_titles);
     if (cached && !IsCacheStale()) return;
-    if (!cached) LoadCache(BACKUP_PATH, g_titles);
+    if (!cached && !LoadCache(BACKUP_PATH, g_titles)) LoadBundled(g_titles);
 
     // Publish only once; refreshing a cache must not invalidate string_views.
     g_loading = curl::Api().ToMemoryAsync(

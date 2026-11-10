@@ -46,6 +46,10 @@ struct GameCardContent {
     NcmContentMetaDatabase db{};
     FsGameCardHandle handle{};
     std::unique_ptr<fs::FsNativeGameCard> fs{};
+    // the nca being read, kept open as reads come in small chunks.
+    Mutex file_mutex{};
+    fs::File file{};
+    std::string file_name{};
 
     ~GameCardContent() {
         ncmContentMetaDatabaseClose(&db);
@@ -65,6 +69,19 @@ struct GameCardContent {
             }
         }
         return fs->GetFsOpenResult();
+    }
+
+    Result ReadFile(const std::string& name, void* buf, s64 off, s64 size, u64* bytes_read) {
+        SCOPED_MUTEX(&file_mutex);
+
+        if (file_name != name) {
+            file.Close();
+            file_name.clear();
+            R_TRY(fs->OpenFile(fs::AppendPath("/", name), FsOpenMode_Read, &file));
+            file_name = name;
+        }
+
+        return file.Read(off, buf, size, 0, bytes_read);
     }
 
     Result GetRightsId(const NcmContentInfo& info, NcmRightsId& out) {
@@ -576,9 +593,7 @@ Result NspEntry::Read(void* buf, s64 off, s64 size, u64* bytes_read) {
 
             if (collection.name.ends_with(".nca")) {
                 if (gamecard) {
-                    fs::File file;
-                    R_TRY(gamecard->fs->OpenFile(fs::AppendPath("/", collection.name), FsOpenMode_Read, &file));
-                    return file.Read(off, buf, size, 0, bytes_read);
+                    return gamecard->ReadFile(collection.name, buf, off, size, bytes_read);
                 }
                 const auto id = ncm::GetContentIdFromStr(collection.name.c_str());
                 return ncmContentStorageReadContentIdFile(&cs, buf, size, &id, off);
@@ -762,7 +777,8 @@ Menu::Menu(u32 flags) : grid::Menu{"Games"_i18n, flags} {
                     std::vector<s64> lang_indices{0};
                     for (size_t i = 0; i < game_lang::LANGUAGE_COUNT; i++) {
                         const auto& language = game_lang::LANGUAGES[i];
-                        if (!(lang_entry.supported_language_flag & language.supported_language_flag)) {
+                        // zero means unknown, so every language is offered.
+                        if (lang_entry.supported_language_flag && !(lang_entry.supported_language_flag & language.supported_language_flag)) {
                             continue;
                         }
                         lang_items.push_back(i18n::get(language.name));
@@ -2118,7 +2134,7 @@ Result BuildNspEntry(const Entry& e, std::string_view export_name, const Content
 Result BuildNspEntries(Entry& e, const title::MetaEntries& meta_entries, std::vector<NspEntry>& out, bool to_nsz) {
     LoadControlEntry(e);
 
-    const auto export_name = title::ResolveExportName(e.app_id, e.export_name);
+    const auto export_name = title::ResolveDumpName(e.app_id, e.export_name);
 
     keys::Keys keys;
     R_TRY(keys::parse_keys(keys, true));

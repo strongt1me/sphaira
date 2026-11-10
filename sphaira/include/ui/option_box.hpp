@@ -55,6 +55,10 @@ private:
     Vec4 m_spacer_line{};
 
     s64 m_index{};
+    bool m_left_press{};
+    bool m_right_press{};
+    bool m_left_held{};
+    bool m_right_held{};
     std::vector<OptionBoxEntry> m_entries{};
 };
 

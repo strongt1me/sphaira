@@ -95,6 +95,8 @@ Result GetControlPath(NcmContentMetaDatabase* db, NcmContentStorage* cs, u64 id,
 
 // Prefer the displayed title, then the regional DB or NACP.
 std::string ResolveExportName(u64 app_id, std::string_view cached_name);
+// Same as above, but keeps the displayed title if "Fix export filenames" is disabled.
+std::string ResolveDumpName(u64 app_id, std::string_view cached_name);
 
 // taken from nxdumptool.
 void utilsReplaceIllegalCharacters(char *str, bool ascii_only);

@@ -84,6 +84,12 @@ OptionBox::~OptionBox() {
 }
 
 auto OptionBox::Update(Controller* controller, TouchInfo* touch) -> void {
+    // GotDown also fires for key repeat. Only a fresh press wraps at an edge.
+    m_left_press = controller->GotDown(Button::LEFT) && !m_left_held;
+    m_right_press = controller->GotDown(Button::RIGHT) && !m_right_held;
+    m_left_held = controller->GotHeld(Button::LEFT);
+    m_right_held = controller->GotHeld(Button::RIGHT);
+
     Widget::Update(controller, touch);
 
     if (touch->is_clicked) {
@@ -181,13 +187,17 @@ auto OptionBox::Setup(s64 index) -> void {
 
     SetActions(
         std::make_pair(Button::LEFT, Action{[this](){
-            if (m_entries.size() > 1) {
-                SetIndex(m_index ? m_index - 1 : m_entries.size() - 1);
+            if (m_index) {
+                SetIndex(m_index - 1);
+            } else if (m_left_press && m_entries.size() > 1) {
+                SetIndex(m_entries.size() - 1);
             }
         }}),
         std::make_pair(Button::RIGHT, Action{[this](){
-            if (m_entries.size() > 1) {
-                SetIndex(m_index + 1 < m_entries.size() ? m_index + 1 : 0);
+            if (m_index + 1 < m_entries.size()) {
+                SetIndex(m_index + 1);
+            } else if (m_right_press && m_entries.size() > 1) {
+                SetIndex(0);
             }
         }}),
         std::make_pair(Button::A, Action{[this](){

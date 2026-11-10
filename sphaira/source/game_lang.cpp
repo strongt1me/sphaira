@@ -6,7 +6,8 @@
 #include <minIni.h>
 
 #include <strings.h>
-#include <string_view>
+#include <algorithm>
+#include <cctype>
 #include <vector>
 
 namespace sphaira::game_lang {
@@ -52,9 +53,11 @@ s64 Get(u64 app_id) {
 Result Set(u64 app_id, s64 index) {
     R_UNLESS(index >= 0 && index <= static_cast<s64>(LANGUAGE_COUNT), Result_GameLangBadIndex);
     if (index) {
+        // zero means unknown, in which case any language can be set.
         u32 supported_languages{};
-        R_TRY(title::GetSupportedLanguageFlag(app_id, &supported_languages));
-        R_UNLESS(supported_languages & LANGUAGES[index - 1].supported_language_flag, Result_GameLangUnsupported);
+        if (R_SUCCEEDED(title::GetSupportedLanguageFlag(app_id, &supported_languages)) && supported_languages) {
+            R_UNLESS(supported_languages & LANGUAGES[index - 1].supported_language_flag, Result_GameLangUnsupported);
+        }
     }
 
     const auto dir = title::GetContentsPath(app_id);
@@ -75,39 +78,16 @@ Result Set(u64 app_id, s64 index) {
         bool still_exists{};
         R_TRY(FileExists(sd, path, still_exists));
         if (!still_exists) R_SUCCEED();
-        std::vector<u8> data;
-        R_TRY(sd.read_entire_file(path, data));
-        const std::string_view content{reinterpret_cast<const char*>(data.data()), data.size()};
-        size_t section_start = std::string_view::npos;
-        size_t section_end = content.size();
-        size_t blank_start = 0;
 
-        for (size_t pos = 0; pos < content.size();) {
-            const auto newline = content.find('\n', pos);
-            const auto end = newline == std::string_view::npos ? content.size() : newline;
-            const auto next = end < content.size() ? end + 1 : end;
-            auto line = content.substr(pos, end - pos);
-            const auto first = line.find_first_not_of(" \t\r");
-            if (first != std::string_view::npos) {
-                line = line.substr(first, line.find_last_not_of(" \t\r") - first + 1);
-                if (section_start != std::string_view::npos) {
-                    if (line.size() >= 2 && line.front() == '[' && line.back() == ']') section_end = pos;
-                    else section_start = std::string_view::npos;
-                    break;
-                }
-                if (line.size() == sizeof("[override_config]") - 1 &&
-                    !strncasecmp(line.data(), "[override_config]", line.size())) section_start = blank_start;
-                blank_start = next;
-            }
-            pos = next;
+        char key[2]{};
+        if (!ini_getkey(INI_SECTION, 0, key, sizeof(key), path)) {
+            R_UNLESS(ini_puts(INI_SECTION, nullptr, nullptr, path), Result_FsStdioFailedToWrite);
         }
 
-        if (content.find_first_not_of(" \t\r\n") == std::string_view::npos ||
-            (section_start == 0 && section_end == content.size())) {
+        std::vector<u8> data;
+        R_TRY(sd.read_entire_file(path, data));
+        if (std::ranges::all_of(data, [](u8 c) { return std::isspace(c); })) {
             R_TRY(sd.DeleteFile(path));
-        } else if (section_start != std::string_view::npos) {
-            data.erase(data.begin() + section_start, data.begin() + section_end);
-            R_TRY(sd.write_entire_file(path, data));
         }
     }
 

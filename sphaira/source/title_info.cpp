@@ -608,22 +608,25 @@ Result GetSupportedLanguageFlag(u64 app_id, u32* out) {
         R_SUCCEED();
     }
 
-    // Read NACP via ns when the cache has no flags.
+    // Read the control NCA first, same order as the title thread.
     auto control = std::make_unique<NsApplicationControlData>();
-    u64 actual_size{};
-    if (R_SUCCEEDED(nsGetApplicationControlData(
-        NsApplicationControlSource_Storage, app_id, control.get(),
-        sizeof(NsApplicationControlData), &actual_size
-    )) && actual_size >= sizeof(NacpStruct) && actual_size <= sizeof(*control) &&
-        control->nacp.supported_language_flag) {
+    const auto rc = LoadControlNacp(app_id, control->nacp, nullptr);
+    if (R_SUCCEEDED(rc)) {
         *out = control->nacp.supported_language_flag;
         R_SUCCEED();
     }
 
-    // Fall back to control NCA if ns returns no flags.
-    R_TRY(LoadControlNacp(app_id, control->nacp, nullptr));
-    *out = control->nacp.supported_language_flag;
-    R_SUCCEED();
+    // ns is slow on newer firmware, only use it if the NCA can't be read.
+    u64 actual_size{};
+    if (R_SUCCEEDED(nsGetApplicationControlData(
+        NsApplicationControlSource_Storage, app_id, control.get(),
+        sizeof(NsApplicationControlData), &actual_size
+    )) && actual_size >= sizeof(NacpStruct) && actual_size <= sizeof(*control)) {
+        *out = control->nacp.supported_language_flag;
+        R_SUCCEED();
+    }
+
+    return rc;
 }
 
 auto GetNcmCs(u8 storage_id) -> NcmContentStorage& {
@@ -696,12 +699,13 @@ Result GetControlPath(NcmContentMetaDatabase* db, NcmContentStorage* cs, u64 id,
 // Only covers Latin-based Switch languages.
 static char LatinToAscii(u32 code) {
     static constexpr struct { u32 first, last; char ch; } MAP[] = {
-        {0x00C0, 0x00C4, 'A'}, {0x00E0, 0x00E4, 'a'}, // À-Ä, à-ä
+        {0x00C0, 0x00C5, 'A'}, {0x00E0, 0x00E5, 'a'}, // À-Å, à-å
         {0x00C7, 0x00C7, 'C'}, {0x00E7, 0x00E7, 'c'}, // Ç, ç
         {0x00C8, 0x00CB, 'E'}, {0x00E8, 0x00EB, 'e'}, // È-Ë, è-ë
         {0x00CC, 0x00CF, 'I'}, {0x00EC, 0x00EF, 'i'}, // Ì-Ï, ì-ï
         {0x00D1, 0x00D1, 'N'}, {0x00F1, 0x00F1, 'n'}, // Ñ, ñ
         {0x00D2, 0x00D6, 'O'}, {0x00F2, 0x00F6, 'o'}, // Ò-Ö, ò-ö
+        {0x00D8, 0x00D8, 'O'}, {0x00F8, 0x00F8, 'o'}, // Ø, ø
         {0x00D9, 0x00DC, 'U'}, {0x00F9, 0x00FC, 'u'}, // Ù-Ü, ù-ü
         {0x0178, 0x0178, 'Y'}, {0x00FF, 0x00FF, 'y'}, // Ÿ, ÿ
     };
@@ -765,6 +769,21 @@ static const char* AsciiReplacement(u32 code) {
     return nullptr;
 }
 
+// Punctuation and symbols (°, ·, ★, ...) can be dropped without losing the title.
+// Number forms (Ⅱ, ...) are excluded as dropping them would change the title.
+static bool IsIgnorableSymbol(u32 code) {
+    return (code >= 0x00A0 && code <= 0x00BF) || (code >= 0x2000 && code <= 0x2BFF && !(code >= 0x2150 && code <= 0x218F));
+}
+
+// Leave room for IDs and extensions. Do not truncate titles.
+constexpr size_t max_component_length = 255;
+constexpr size_t nsp_suffix_length = sizeof(NacpStruct::display_version) + sizeof(" [0123456789ABCDEF][v4294967295][DLCUPD].nsp") - 1;
+// XCI names reserve 30 bytes.
+constexpr size_t gc_base_length = max_component_length - 30;
+constexpr size_t gc_suffix_length = sizeof(" [0123456789ABCDEF][v4294967295]") - 1;
+static_assert(nsp_suffix_length < max_component_length && gc_suffix_length < gc_base_length);
+constexpr size_t max_title_length = std::min(max_component_length - nsp_suffix_length, gc_base_length - gc_suffix_length);
+
 // Transliterate the title and clean it up for ASCII-safe filename.
 // Example: Pokémon Diamant Étincelant → Pokemon Diamant Etincelant
 static void ToAscii(std::string_view src, std::string& out) {
@@ -788,7 +807,7 @@ static void ToAscii(std::string_view src, std::string& out) {
             out += text;
         } else if (const char rep = LatinToAscii(code)) {
             out.push_back(rep);
-        } else if (code >= 0x80) {
+        } else if (code >= 0x80 && !IsIgnorableSymbol(code)) {
             out.clear();
             return;
         }
@@ -797,14 +816,6 @@ static void ToAscii(std::string_view src, std::string& out) {
     }
 
     CleanTitleName(out);
-    // Leave room for IDs and extensions. Do not truncate titles.
-    constexpr size_t max_component_length = 255;
-    constexpr size_t nsp_suffix_length = sizeof(NacpStruct::display_version) + sizeof(" [0123456789ABCDEF][v4294967295][DLCUPD].nsp") - 1;
-    // XCI names reserve 30 bytes.
-    constexpr size_t gc_base_length = max_component_length - 30;
-    constexpr size_t gc_suffix_length = sizeof(" [0123456789ABCDEF][v4294967295]") - 1;
-    static_assert(nsp_suffix_length < max_component_length && gc_suffix_length < gc_base_length);
-    constexpr size_t max_title_length = std::min(max_component_length - nsp_suffix_length, gc_base_length - gc_suffix_length);
     if (out.size() > max_title_length || !std::ranges::any_of(out, [](unsigned char c) {
         return c != ' ' && c != '.';
     })) out.clear();
@@ -853,6 +864,17 @@ std::string ResolveExportName(u64 app_id, std::string_view cached_name) {
         return MakeExportName(app_id, control->nacp, {});
     }
     return {};
+}
+
+std::string ResolveDumpName(u64 app_id, std::string_view cached_name) {
+    if (!App::GetApp()->m_dump_fix_filenames.Get()) {
+        const auto data = Get(app_id);
+        if (data && data->status == NacpLoadStatus::Loaded && !data->current_name.empty() && data->current_name.size() <= max_title_length) {
+            return data->current_name;
+        }
+    }
+
+    return ResolveExportName(app_id, cached_name);
 }
 
 // taken from nxdumptool.

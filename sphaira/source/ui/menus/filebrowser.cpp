@@ -60,6 +60,14 @@ using RomDatabaseIndexs = std::vector<size_t>;
 
 std::atomic_bool g_change_signalled{};
 
+// Existing parent folders are left alone, only the newly entered part has to be safe.
+auto GetInputRoot(std::string_view path, std::string_view current, std::string_view root) -> std::string_view {
+    if (path.starts_with(current) && (current.ends_with('/') || path.size() == current.size() || path[current.size()] == '/')) {
+        return current;
+    }
+    return root;
+}
+
 bool CheckInputPath(std::string_view path, std::string_view root, bool directory = false) {
     if (path.empty() || path.size() >= PATH_MAX || root.empty()) {
         return false;
@@ -1839,7 +1847,7 @@ void FsView::DisplayOptions() {
                 options->Add<SidebarEntryCallback>("Extract to..."_i18n, [this](){
                     std::string out;
                     if (R_SUCCEEDED(swkbd::ShowText(out, SwkbdType_QWERTY, "Extract path", "Enter the path to the folder to extract into"_i18n.c_str(), fs::AppendPath(m_path, ""))) && !out.empty()) {
-                        if (!CheckInputPath(out, m_fs_entry.root, true)) {
+                        if (!CheckInputPath(out, GetInputRoot(out, m_path, m_fs_entry.root), true)) {
                             App::Notify("Invalid file path"_i18n);
                             return;
                         }
@@ -1868,7 +1876,7 @@ void FsView::DisplayOptions() {
                         if (!out.ends_with(".zip")) {
                             out += ".zip";
                         }
-                        if (!CheckInputPath(out, m_fs_entry.root)) {
+                        if (!CheckInputPath(out, GetInputRoot(out, m_path, m_fs_entry.root))) {
                             App::Notify("Invalid file path"_i18n);
                             return;
                         }
@@ -1928,7 +1936,7 @@ void FsView::DisplayAdvancedOptions() {
                 if (!out.starts_with(m_fs_entry.root.s)) {
                     out = m_path.toString() + (m_path.ends_with("/") ? "" : "/") + out;
                 }
-                if (!CheckInputPath(out, m_fs_entry.root)) {
+                if (!CheckInputPath(out, GetInputRoot(out, m_path, m_fs_entry.root))) {
                     App::Notify("Invalid file path"_i18n);
                     return;
                 }
@@ -1952,7 +1960,7 @@ void FsView::DisplayAdvancedOptions() {
                 if (!out.starts_with(m_fs_entry.root.s)) {
                     out = m_path.toString() + (m_path.ends_with("/") ? "" : "/") + out;
                 }
-                if (!CheckInputPath(out, m_fs_entry.root)) {
+                if (!CheckInputPath(out, GetInputRoot(out, m_path, m_fs_entry.root))) {
                     App::Notify("Invalid file path"_i18n);
                     return;
                 }
