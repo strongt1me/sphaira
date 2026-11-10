@@ -377,7 +377,7 @@ void Menu::DumpNcas() {
     const auto entries = GetSelectedEntries();
     App::PopToMenu();
 
-    const auto export_name = title::ResolveDumpName(m_entry.app_id, m_entry.export_name);
+    const auto export_name = title::ResolveExportName(m_entry.app_id, m_entry.export_name);
 
     char version[sizeof(NacpStruct::display_version) + 1]{};
     if (m_meta_entry.status.meta_type == NcmContentMetaType_Patch) {

@@ -256,8 +256,6 @@
     "It is recommended to keep this disabled."
   ],
   "Export Options": "Export Options",
-  "Fix export filenames": "Fix export filenames",
-  "fix_export_filenames_info": "Converts export filenames to ASCII and falls back to the Title ID when unavailable. Disable this to preserve localized and Unicode titles on destinations that support them.",
   "Export path": "Export path",
   "Enter export path...": "Enter export path...",
   "dump_path_info": "Sets the base folder used for exports.\nFor example, /dumps\n\nAll exported files will be saved inside this folder.",

@@ -165,7 +165,7 @@ game::NspEntry* Device::FindNspFromEntry(Entry& entry, u64 id) const {
 
     // Resolve the export name once per title.
     if (!entry.export_name_resolved) {
-        entry.export_name = title::ResolveDumpName(entry.app_id, entry.export_name);
+        entry.export_name = title::ResolveExportName(entry.app_id, entry.export_name);
         entry.export_name_resolved = true;
     }
 

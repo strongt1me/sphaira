@@ -2134,7 +2134,7 @@ Result BuildNspEntry(const Entry& e, std::string_view export_name, const Content
 Result BuildNspEntries(Entry& e, const title::MetaEntries& meta_entries, std::vector<NspEntry>& out, bool to_nsz) {
     LoadControlEntry(e);
 
-    const auto export_name = title::ResolveDumpName(e.app_id, e.export_name);
+    const auto export_name = title::ResolveExportName(e.app_id, e.export_name);
 
     keys::Keys keys;
     R_TRY(keys::parse_keys(keys, true));

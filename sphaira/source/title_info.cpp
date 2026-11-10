@@ -775,15 +775,6 @@ static bool IsIgnorableSymbol(u32 code) {
     return (code >= 0x00A0 && code <= 0x00BF) || (code >= 0x2000 && code <= 0x2BFF && !(code >= 0x2150 && code <= 0x218F));
 }
 
-// Leave room for IDs and extensions. Do not truncate titles.
-constexpr size_t max_component_length = 255;
-constexpr size_t nsp_suffix_length = sizeof(NacpStruct::display_version) + sizeof(" [0123456789ABCDEF][v4294967295][DLCUPD].nsp") - 1;
-// XCI names reserve 30 bytes.
-constexpr size_t gc_base_length = max_component_length - 30;
-constexpr size_t gc_suffix_length = sizeof(" [0123456789ABCDEF][v4294967295]") - 1;
-static_assert(nsp_suffix_length < max_component_length && gc_suffix_length < gc_base_length);
-constexpr size_t max_title_length = std::min(max_component_length - nsp_suffix_length, gc_base_length - gc_suffix_length);
-
 // Transliterate the title and clean it up for ASCII-safe filename.
 // Example: Pokémon Diamant Étincelant → Pokemon Diamant Etincelant
 static void ToAscii(std::string_view src, std::string& out) {
@@ -816,6 +807,14 @@ static void ToAscii(std::string_view src, std::string& out) {
     }
 
     CleanTitleName(out);
+    // Leave room for IDs and extensions. Do not truncate titles.
+    constexpr size_t max_component_length = 255;
+    constexpr size_t nsp_suffix_length = sizeof(NacpStruct::display_version) + sizeof(" [0123456789ABCDEF][v4294967295][DLCUPD].nsp") - 1;
+    // XCI names reserve 30 bytes.
+    constexpr size_t gc_base_length = max_component_length - 30;
+    constexpr size_t gc_suffix_length = sizeof(" [0123456789ABCDEF][v4294967295]") - 1;
+    static_assert(nsp_suffix_length < max_component_length && gc_suffix_length < gc_base_length);
+    constexpr size_t max_title_length = std::min(max_component_length - nsp_suffix_length, gc_base_length - gc_suffix_length);
     if (out.size() > max_title_length || !std::ranges::any_of(out, [](unsigned char c) {
         return c != ' ' && c != '.';
     })) out.clear();
@@ -864,17 +863,6 @@ std::string ResolveExportName(u64 app_id, std::string_view cached_name) {
         return MakeExportName(app_id, control->nacp, {});
     }
     return {};
-}
-
-std::string ResolveDumpName(u64 app_id, std::string_view cached_name) {
-    if (!App::GetApp()->m_dump_fix_filenames.Get()) {
-        const auto data = Get(app_id);
-        if (data && data->status == NacpLoadStatus::Loaded && !data->current_name.empty() && data->current_name.size() <= max_title_length) {
-            return data->current_name;
-        }
-    }
-
-    return ResolveExportName(app_id, cached_name);
 }
 
 // taken from nxdumptool.
