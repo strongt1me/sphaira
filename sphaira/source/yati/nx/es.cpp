@@ -226,7 +226,8 @@ Result GetPersonalisedTicketAndCertificate(const FsRightsId& rights_id, std::vec
         }
     }
 
-    return 66;
+    log_write("[ES] failed to find personalised ticket\n");
+    R_THROW(Result_EsTicketNotFound);
 }
 
 } // namespace

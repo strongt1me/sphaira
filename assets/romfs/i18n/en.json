@@ -1376,5 +1376,6 @@
   "Show ABI warning": "Show ABI warning",
   "ABI warning: compatibility issues": "ABI warning: compatibility issues",
   "Shows a warning for homebrew built for an older ABI. These applications may have compatibility issues.": "Shows a warning for homebrew built for an older ABI. These applications may have compatibility issues.",
-  "Installing is not supported on Switch 2": "Installing is not supported on Switch 2"
+  "Installing is not supported on Switch 2": "Installing is not supported on Switch 2",
+  "The ticket was not found. For updates or DLC on a game card, select the game once in the HOME menu and try again.": "The ticket was not found. For updates or DLC on a game card, select the game once in the HOME menu and try again."
 }

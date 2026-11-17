@@ -192,6 +192,7 @@ auto GetCodeMessage(Result rc) -> const char* {
         case Result_SaveInvalidArchiveLayout: return "SphairaError_SaveInvalidArchiveLayout";
         case Result_GcNoInitialData: return "SphairaError_GcNoInitialData";
         case Result_PlatformUnsupported: return "SphairaError_PlatformUnsupported";
+        case Result_EsTicketNotFound: return "SphairaError_EsTicketNotFound";
     }
 
     return "";
@@ -220,6 +221,9 @@ auto GetCodeHint(Result rc) -> std::string {
 
         case FsError_TargetLocked:
             return "The file or folder is in use. Close any running software, turn off FTP / MTP, or restart the console."_i18n;
+
+        case Result_EsTicketNotFound:
+            return "The ticket was not found. For updates or DLC on a game card, select the game once in the HOME menu and try again."_i18n;
     }
 
     return {};
@@ -287,7 +291,7 @@ auto ErrorBox::Draw(NVGcontext* vg, Theme* theme) -> void {
         gfx::drawTextBox(vg, m_pos.x + 35, 340, 20, m_pos.w - 70, theme->GetColour(ThemeEntryID_TEXT_SELECTED), m_hint.c_str(), NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
     }
     gfx::drawTextArgs(vg, center_x, has_hint ? 395 : 380, 20, NVG_ALIGN_CENTER | NVG_ALIGN_TOP, theme->GetColour(ThemeEntryID_TEXT_INFO), "If this message appears repeatedly, please open an issue."_i18n.c_str());
-    gfx::drawTextArgs(vg, center_x, has_hint ? 425 : 415, 20, NVG_ALIGN_CENTER | NVG_ALIGN_TOP, theme->GetColour(ThemeEntryID_TEXT_INFO), "https://github.com/ITotalJustice/sphaira/issues");
+    gfx::drawTextArgs(vg, center_x, has_hint ? 425 : 415, 20, NVG_ALIGN_CENTER | NVG_ALIGN_TOP, theme->GetColour(ThemeEntryID_TEXT_INFO), "https://github.com/NaGaa95/sphaira/issues");
     gfx::drawRectOutline(vg, theme, 4.f, box);
     gfx::drawTextArgs(vg, center_x, box.y + box.h/2, 23, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE, theme->GetColour(ThemeEntryID_TEXT_SELECTED), "OK"_i18n.c_str());
 }
