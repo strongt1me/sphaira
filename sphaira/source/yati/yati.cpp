@@ -1398,10 +1398,18 @@ Result Yati::RegisterNcasAndPushRecord(const CnmtCollection& cnmt, u32 latest_ve
 
     R_TRY(ns::PushApplicationRecord(app_id, std::addressof(content_storage_record), 1));
     if (hosversionAtLeast(6,0,0)) {
-        R_TRY(avmInitialize());
-        ON_SCOPE_EXIT(avmExit());
+        // the content is already installed and registered at this point.
+        // setting the launch version is only a nicety, so a failure here (for example
+        // the avm service having no free sessions) must not fail the whole install.
+        auto rc = avmInitialize();
+        if (R_SUCCEEDED(rc)) {
+            ON_SCOPE_EXIT(avmExit());
+            rc = avmPushLaunchVersion(app_id, latest_version_num);
+        }
 
-        R_TRY(avmPushLaunchVersion(app_id, latest_version_num));
+        if (R_FAILED(rc)) {
+            log_write("[YATI] failed to push launch version for %016lX: 0x%X\n", app_id, rc);
+        }
     }
     log_write("pushed\n");
 
